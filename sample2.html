@@ -93,6 +93,12 @@
       background-color: var(--danger-color);
     }
 
+    .hydration-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
     .dark-toggle {
       position: absolute;
       top: 10px;
@@ -102,6 +108,11 @@
     @media screen and (max-width: 600px) {
       .container {
         padding: 0.5rem;
+      }
+
+      .hydration-row {
+        flex-direction: column;
+        align-items: start;
       }
     }
   </style>
@@ -115,16 +126,32 @@
     <div class="input-group">
       <input type="text" id="taskName" placeholder="Enter task name" />
       <div style="display: flex; gap: 0.5rem">
+
         <input type="number" id="hours" placeholder="HH" min="0" style="width: 50%" />
         <input type="number" id="minutes" placeholder="MM" min="0" style="width: 50%" />
       </div>
+
+      <!-- <div class="hydration-row">
+        <label><input type="checkbox" id="hydrationCheck" /> Hydration Alert</label>
+        <input type="number" id="hydrationInterval" placeholder="Interval (min)" min="1" style="width: 50%;" />
+      </div> -->
+
+      <div>
+        <label>Add Alerts:</label>
+        <div id="customAlertsContainer"></div>
+        <button type="button" onclick="addAlertInput()">➕</button>
+      </div>
+
       <button onclick="addTask()">Add Task</button>
     </div>
+
     <div id="taskList"></div>
   </div>
 
   <script>
     let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+    const hydrationTimers = {};
+    const customAlertTimers = {};
 
     function saveTasks() {
       localStorage.setItem('tasks', JSON.stringify(tasks));
@@ -139,7 +166,9 @@
 
         const startTime = task.startTime ? new Date(task.startTime) : null;
         const endTime = task.endTime ? new Date(task.endTime) : null;
-        const finalTime = endTime && startTime ? new Date(startTime.getTime() + task.totalDuration) : null;
+        const finalTime = task.startTime
+          ? new Date(new Date(task.startTime).getTime() + task.totalDuration)
+          : null;
 
         el.innerHTML = `
           <div class="task-header">
@@ -149,6 +178,10 @@
           <div class="task-time">Start: ${startTime ? startTime.toLocaleTimeString() : '-'}</div>
           <div class="task-time">End: ${endTime ? endTime.toLocaleTimeString() : '-'}</div>
           <div class="task-time">Final: ${finalTime ? finalTime.toLocaleTimeString() : '-'}</div>
+          <div class="task-time">${task.hydration ? `💧 Hydration every ${task.hydrationInterval} min` : ''}</div>
+          ${task.customAlerts && task.customAlerts.length > 0
+            ? `<div class="task-time">🔔 Alerts: ${task.customAlerts.map(a => `${a.name} @ ${a.time}min`).join(", ")}</div>`
+            : ''}
           <div class="buttons">
             <button onclick="startTimer(${i})">Start</button>
             <button onclick="endTimer(${i})">End</button>
@@ -159,40 +192,187 @@
       });
     }
 
+function addAlertInput() {
+  const container = document.getElementById("customAlertsContainer");
+
+  const alertDiv = document.createElement("div");
+  alertDiv.classList.add("alert-input-row");
+  alertDiv.style.display = "flex";
+  alertDiv.style.alignItems = "center";
+  alertDiv.style.justifyContent = "space-between";
+  alertDiv.style.marginBottom = "0.5rem";
+  alertDiv.style.gap = "0.5rem";
+  alertDiv.style.flexWrap = "wrap";
+
+  // Alert Name Input
+  const nameInput = document.createElement("input");
+  nameInput.type = "text";
+  nameInput.placeholder = "Alert Name";
+  nameInput.classList.add("alert-input", "alert-name");
+  nameInput.style.flex = "2";
+
+  // Alert Time Input
+  const timeInput = document.createElement("input");
+  timeInput.type = "number";
+  timeInput.placeholder = "Time (min)";
+  timeInput.min = "1";
+  timeInput.classList.add("alert-input", "alert-time");
+  timeInput.style.flex = "1";
+
+  // Repeat Checkbox
+  const repeatLabel = document.createElement("label");
+  repeatLabel.style.display = "flex";
+  repeatLabel.style.alignItems = "center";
+  repeatLabel.style.gap = "0.2rem";
+  repeatLabel.style.flex = "1";
+  const repeatCheckbox = document.createElement("input");
+  repeatCheckbox.type = "checkbox";
+  repeatCheckbox.classList.add("alert-repeat");
+  repeatLabel.appendChild(repeatCheckbox);
+  repeatLabel.appendChild(document.createTextNode("Repeat"));
+
+  // Delete Button
+  const deleteBtn = document.createElement("button");
+  deleteBtn.innerHTML = "🗑️";
+  deleteBtn.onclick = () => alertDiv.remove();
+  deleteBtn.style.cursor = "pointer";
+  deleteBtn.style.border = "none";
+  deleteBtn.style.background = "transparent";
+  deleteBtn.title = "Delete Alert";
+
+  // Add all elements
+  alertDiv.appendChild(nameInput);
+  alertDiv.appendChild(timeInput);
+  alertDiv.appendChild(repeatLabel);
+  alertDiv.appendChild(deleteBtn);
+
+  container.appendChild(alertDiv);
+}
+
+
+
+
+
     function addTask() {
-      const name = document.getElementById("taskName").value;
+      const name = document.getElementById("taskName").value.trim();
       const hours = parseInt(document.getElementById("hours").value) || 0;
       const minutes = parseInt(document.getElementById("minutes").value) || 0;
-      if (!name || (hours === 0 && minutes === 0)) return alert("Enter valid task name and time");
+    //  const hydration = document.getElementById("hydrationCheck")?.checked || false;
+// const hydrationInterval = parseInt(document.getElementById("hydrationInterval")?.value) || 0;
 
-      tasks.push({ name, hours, minutes, totalDuration: (hours * 60 + minutes) * 60000 });
+    const alertNameInputs = document.querySelectorAll(".alert-name");
+const alertTimeInputs = document.querySelectorAll(".alert-time");
+const alertRepeatInputs = document.querySelectorAll(".alert-repeat");
+
+let customAlerts = [];
+for (let i = 0; i < alertNameInputs.length; i++) {
+  const alertName = alertNameInputs[i].value.trim();
+  const alertTime = parseInt(alertTimeInputs[i].value);
+  const repeat = alertRepeatInputs[i]?.checked || false;
+
+  if (alertName && !isNaN(alertTime) && alertTime > 0) {
+    customAlerts.push({ name: alertName, time: alertTime, repeat });
+  }
+}
+
+
+      if (!name || (hours === 0 && minutes === 0)) {
+        alert("Enter valid task name and time");
+        return;
+      }
+
+      tasks.push({
+        name,
+        hours,
+        minutes,
+        customAlerts,
+        totalDuration: (hours * 60 + minutes) * 60000
+      
+      });
+
       saveTasks();
       renderTasks();
+
       document.getElementById("taskName").value = "";
       document.getElementById("hours").value = "";
       document.getElementById("minutes").value = "";
+          
     }
 
-    function startTimer(i) {
-      if (tasks[i].startTime) return alert("Already started");
-      tasks[i].startTime = new Date().toISOString();
-      saveTasks();
-      renderTasks();
-    }
+function startTimer(i) {
+  console.log("Start button clicked for task", i);
+  const task = tasks[i];
+  if (task.startTime) return;
+
+  task.startTime = new Date().toISOString();
+  task.running = true;
+
+  task.alertTimeouts = [];
+  task.alertIntervals = [];
+
+  scheduleCustomAlerts(i);
+  notifyWhenDone(i);
+
+  saveTasks();  // <== Save the running state
+  renderTasks();
+}
+
+
 
     function endTimer(i) {
       if (!tasks[i].startTime) return alert("Please start timer first");
       if (tasks[i].endTime) return alert("Already ended");
+
       tasks[i].endTime = new Date().toISOString();
+
+      // Clear hydration
+      if (hydrationTimers[i]) {
+        hydrationTimers[i].forEach(id => clearTimeout(id));
+        delete hydrationTimers[i];
+      }
+
+      // Clear custom alerts
+      if (customAlertTimers[i]) {
+        customAlertTimers[i].forEach(id => clearTimeout(id));
+        delete customAlertTimers[i];
+      }
+
       saveTasks();
       renderTasks();
     }
 
-    function deleteTask(i) {
-      tasks.splice(i, 1);
-      saveTasks();
-      renderTasks();
-    }
+function deleteTask(i) {
+  const task = tasks[i];
+
+  // Cancel time-up notification
+  if (task.timeUpTimeout) {
+    clearTimeout(task.timeUpTimeout);
+  }
+
+  // Cancel custom alerts (one-time)
+  if (customAlertTimers[i]) {
+    customAlertTimers[i].forEach(id => clearTimeout(id));
+    delete customAlertTimers[i];
+  }
+
+  // ✅ Cancel repeating custom alerts
+  if (task.alertIntervals) {
+    task.alertIntervals.forEach(id => clearInterval(id));
+    task.alertIntervals = [];
+  }
+
+  // Cancel hydration alerts
+  if (hydrationTimers[i]) {
+    hydrationTimers[i].forEach(id => clearTimeout(id));
+    delete hydrationTimers[i];
+  }
+
+  tasks.splice(i, 1);
+  saveTasks();
+  renderTasks();
+}
+
+
 
     function toggleDarkMode() {
       const root = document.documentElement;
@@ -206,6 +386,105 @@
         root.style.setProperty('--card-color', '#1e1e1e');
         root.style.setProperty('--text-color', '#ffffff');
       }
+    }
+
+function notifyWhenDone(i) {
+  const task = tasks[i];
+  if (!("Notification" in window)) return;
+
+  Notification.requestPermission().then(permission => {
+    if (permission !== "granted") return;
+
+    const timeoutId = setTimeout(() => {
+      if (!tasks[i]?.endTime) {
+        new Notification(`⏰ Task "${task.name}" time is up!`);
+        playBeep();
+      }
+    }, task.totalDuration);
+
+    task.timeUpTimeout = timeoutId;
+  });
+}
+
+
+    function scheduleHydrationNotifications(i) {
+      const task = tasks[i];
+      const interval = task.hydrationInterval * 60000;
+      const count = Math.floor(task.totalDuration / interval);
+      hydrationTimers[i] = [];
+
+      for (let n = 1; n <= count; n++) {
+        const timeoutId = setTimeout(() => {
+          if (tasks[i].endTime) return;
+          new Notification(`💧 Time to hydrate during "${task.name}"`);
+          playBeep();
+        }, n * interval);
+        hydrationTimers[i].push(timeoutId);
+      }
+    }
+    function deleteAlert(button) {
+  const alertDiv = button.closest('.alert-input-row');
+  alertDiv.remove();
+}
+
+
+function scheduleCustomAlerts(index) {
+  const task = tasks[index];
+  if (!task.customAlerts) return;
+
+  task.customAlerts.forEach(alert => {
+    if (alert.repeat) {
+      const intervalId = setInterval(() => {
+        if (task.running) {
+          showNotification("Custom Alert", `${alert.name} for task: ${task.name}`);
+        } else {
+          clearInterval(intervalId);
+        }
+      }, alert.time * 60 * 1000);
+
+      task.alertIntervals.push(intervalId);
+    } else {
+      const timeoutId = setTimeout(() => {
+        if (task.running) {
+          showNotification("Custom Alert", `${alert.name} for task: ${task.name}`);
+        }
+      }, alert.time * 60 * 1000);
+
+      task.alertTimeouts.push(timeoutId);
+    }
+  });
+}
+
+
+  function showNotification(title, body) {
+    if (Notification.permission === "granted") {
+      new Notification(title, { body });
+    } else if (Notification.permission !== "denied") {
+      Notification.requestPermission().then(permission => {
+        if (permission === "granted") {
+          new Notification(title, { body });
+        }
+      });
+    }
+  }
+
+
+
+    function playBeep() {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(800, ctx.currentTime);
+      gainNode.gain.setValueAtTime(0.1, ctx.currentTime);
+
+      oscillator.start();
+      oscillator.stop(ctx.currentTime + 0.3);
+      
     }
 
     renderTasks();
