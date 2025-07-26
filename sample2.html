@@ -210,6 +210,7 @@ function addAlertInput() {
   nameInput.placeholder = "Alert Name";
   nameInput.classList.add("alert-input", "alert-name");
   nameInput.style.flex = "2";
+  ameInput.style.width = "70%";
 
   // Alert Time Input
   const timeInput = document.createElement("input");
@@ -218,6 +219,7 @@ function addAlertInput() {
   timeInput.min = "1";
   timeInput.classList.add("alert-input", "alert-time");
   timeInput.style.flex = "1";
+  timeInput.style.width = "80%";
 
   // Repeat Checkbox
   const repeatLabel = document.createElement("label");
