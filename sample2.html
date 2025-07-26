@@ -438,7 +438,8 @@ function scheduleCustomAlerts(index) {
     if (alert.repeat) {
       const intervalId = setInterval(() => {
         if (task.running) {
-          showNotification("Custom Alert", `${alert.name} for task: ${task.name}`);
+          showNotification("Alert", `${alert.name} for task: ${task.name}`);
+          playBeep();
         } else {
           clearInterval(intervalId);
         }
